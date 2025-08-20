@@ -8,6 +8,8 @@ from typing import Callable, Any, List, Dict
 import streamlit as st
 import streamlit.components.v1 as components
 
+from . import url_util
+
 # Tell streamlit that there is a component called streamlit_video_coordinates,
 # and that the code to display that component is in the "frontend" folder
 frontend_dir = (Path(__file__).parent / "frontend").absolute()
@@ -61,8 +63,12 @@ def streamlit_video_coordinates(
     
     # Handle different source types
     if isinstance(source, (str, Path)):
-        if str(source).startswith(("http://", "https://")):
-            # URL source
+        if isinstance(source, Path):
+            # Convert Path to string for processing
+            source = str(source)
+            
+        if url_util.is_url(source, allowed_schemas=("http", "https", "data")):
+            # URL source (including data URLs)
             video_src = str(source)
         else:
             # Local file path
