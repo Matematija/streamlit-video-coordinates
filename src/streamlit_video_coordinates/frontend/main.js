@@ -50,6 +50,10 @@ function clickListener(event) {
     return;
   }
   
+  // Prevent the default click behavior (play/pause) when video is paused
+  event.preventDefault();
+  event.stopPropagation();
+  
   const rect = video.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
