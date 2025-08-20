@@ -3,28 +3,90 @@
 
 // Store all click events
 let clickEvents = [];
+let isFullscreen = false;
+let fullscreenOverlay = null;
 
 function sendValue() {
   Streamlit.setComponentValue(clickEvents)
 }
 
 /**
+ * Get the appropriate overlay element (normal or fullscreen)
+ */
+function getOverlay() {
+  if (isFullscreen && fullscreenOverlay) {
+    return fullscreenOverlay;
+  }
+  return document.getElementById("click-overlay");
+}
+
+/**
+ * Create fullscreen overlay
+ */
+function createFullscreenOverlay() {
+  if (fullscreenOverlay) {
+    return fullscreenOverlay;
+  }
+  
+  fullscreenOverlay = document.createElement("div");
+  fullscreenOverlay.id = "fullscreen-overlay";
+  fullscreenOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+  `;
+  
+  return fullscreenOverlay;
+}
+
+/**
+ * Remove fullscreen overlay
+ */
+function removeFullscreenOverlay() {
+  if (fullscreenOverlay && fullscreenOverlay.parentNode) {
+    fullscreenOverlay.parentNode.removeChild(fullscreenOverlay);
+  }
+  fullscreenOverlay = null;
+}
+
+/**
+ * Add a visual marker at the click position
+ */
+/**
  * Add a visual marker at the click position
  */
 function addClickMarker(x, y, frameTime, frameIndex) {
-  const overlay = document.getElementById("click-overlay");
+  let overlay, actualX, actualY;
+  
+  if (isFullscreen) {
+    // In fullscreen, use fullscreen overlay and absolute positioning
+    overlay = getOverlay();
+    const video = document.getElementById("video");
+    const videoRect = video.getBoundingClientRect();
+    actualX = videoRect.left + x;
+    actualY = videoRect.top + y;
+  } else {
+    // In normal mode, use relative positioning within video container
+    overlay = getOverlay();
+    actualX = x;
+    actualY = y;
+  }
   
   // Create marker dot
   const marker = document.createElement("div");
   marker.className = "click-marker";
-  marker.style.left = x + "px";
-  marker.style.top = y + "px";
+  marker.style.left = actualX + "px";
+  marker.style.top = actualY + "px";
   
   // Create label with frame info
   const label = document.createElement("div");
   label.className = "click-label";
-  label.style.left = x + "px";
-  label.style.top = y + "px";
+  label.style.left = actualX + "px";
+  label.style.top = actualY + "px";
   label.textContent = `${frameTime.toFixed(2)}s (f:${frameIndex})`;
   
   overlay.appendChild(marker);
@@ -37,6 +99,11 @@ function addClickMarker(x, y, frameTime, frameIndex) {
 function clearMarkers() {
   const overlay = document.getElementById("click-overlay");
   overlay.innerHTML = "";
+  
+  // Also clear fullscreen overlay if it exists
+  if (fullscreenOverlay) {
+    fullscreenOverlay.innerHTML = "";
+  }
 }
 
 /**
@@ -54,9 +121,15 @@ function clickListener(event) {
   event.preventDefault();
   event.stopPropagation();
   
+  // Calculate coordinates relative to video element
   const rect = video.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
+  
+  // Ensure coordinates are within video bounds
+  if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+    return;
+  }
   
   // Get current video time and estimated frame index
   const frameTime = video.currentTime;
@@ -92,6 +165,98 @@ function clickListener(event) {
 }
 
 /**
+ * Handle fullscreen changes
+ */
+function handleFullscreenChange() {
+  const video = document.getElementById("video");
+  
+  // Check if we're in fullscreen mode
+  isFullscreen = !!(document.fullscreenElement || 
+                    document.webkitFullscreenElement || 
+                    document.mozFullScreenElement || 
+                    document.msFullscreenElement);
+  
+  if (isFullscreen) {
+    // Create and add fullscreen overlay
+    const overlay = createFullscreenOverlay();
+    document.body.appendChild(overlay);
+    
+    // Recreate existing markers for fullscreen
+    recreateMarkersForFullscreen();
+  } else {
+    // Remove fullscreen overlay and recreate markers in normal overlay
+    removeFullscreenOverlay();
+    recreateMarkersForNormal();
+  }
+}
+
+/**
+ * Recreate markers for fullscreen mode
+ */
+function recreateMarkersForFullscreen() {
+  if (!isFullscreen || !fullscreenOverlay) return;
+  
+  const video = document.getElementById("video");
+  const videoRect = video.getBoundingClientRect();
+  const normalOverlay = document.getElementById("click-overlay");
+  
+  // Clear fullscreen overlay
+  fullscreenOverlay.innerHTML = "";
+  
+  // Copy markers from normal overlay to fullscreen overlay with adjusted positions
+  const markers = normalOverlay.querySelectorAll('.click-marker');
+  const labels = normalOverlay.querySelectorAll('.click-label');
+  
+  markers.forEach((marker, index) => {
+    const normalX = parseFloat(marker.style.left);
+    const normalY = parseFloat(marker.style.top);
+    
+    const newMarker = marker.cloneNode(true);
+    newMarker.style.left = (videoRect.left + normalX) + "px";
+    newMarker.style.top = (videoRect.top + normalY) + "px";
+    
+    fullscreenOverlay.appendChild(newMarker);
+  });
+  
+  labels.forEach((label, index) => {
+    const normalX = parseFloat(label.style.left);
+    const normalY = parseFloat(label.style.top);
+    
+    const newLabel = label.cloneNode(true);
+    newLabel.style.left = (videoRect.left + normalX) + "px";
+    newLabel.style.top = (videoRect.top + normalY) + "px";
+    
+    fullscreenOverlay.appendChild(newLabel);
+  });
+}
+
+/**
+ * Recreate markers for normal mode
+ */
+function recreateMarkersForNormal() {
+  // Clear and recreate markers in normal overlay from click events data
+  const normalOverlay = document.getElementById("click-overlay");
+  normalOverlay.innerHTML = "";
+  
+  // Recreate all markers from stored click events
+  clickEvents.forEach(clickData => {
+    const marker = document.createElement("div");
+    marker.className = "click-marker";
+    marker.style.left = clickData.x + "px";
+    marker.style.top = clickData.y + "px";
+    
+    const label = document.createElement("div");
+    label.className = "click-label";
+    label.style.left = clickData.x + "px";
+    label.style.top = clickData.y + "px";
+    label.textContent = `${clickData.frame_time.toFixed(2)}s (f:${clickData.frame_index})`;
+    
+    normalOverlay.appendChild(marker);
+    normalOverlay.appendChild(label);
+  });
+}
+
+/**
  * Update the overlay size when video is resized
  */
 function updateOverlaySize() {
@@ -101,6 +266,11 @@ function updateOverlaySize() {
   const rect = video.getBoundingClientRect();
   overlay.style.width = rect.width + "px";
   overlay.style.height = rect.height + "px";
+  
+  // Update fullscreen markers if in fullscreen mode
+  if (isFullscreen) {
+    recreateMarkersForFullscreen();
+  }
 }
 
 /**
@@ -166,6 +336,12 @@ function onRender(event) {
   
   // Add click listener
   video.onclick = clickListener;
+  
+  // Add fullscreen change listeners
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+  document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+  document.addEventListener('MSFullscreenChange', handleFullscreenChange);
   
   // Update overlay on video time changes
   video.ontimeupdate = updateOverlaySize;
