@@ -8,19 +8,14 @@ This is a minimal example showing how to use the streamlit-video-coordinates com
 """
 
 # File upload example
-uploaded_file = st.file_uploader("Upload a video", type=['mp4', 'webm', 'ogg'])
+uploaded_file = st.file_uploader("Upload a video", type=["mp4", "webm", "ogg"])
 
 if uploaded_file:
     st.write("### Video with Coordinate Capture")
-    
+
     # Use the component
-    clicks = streamlit_video_coordinates(
-        uploaded_file, 
-        key="simple_video",
-        width=500,
-        height=300
-    )
-    
+    clicks = streamlit_video_coordinates(uploaded_file, key="simple_video", width=500, height=300)
+
     # Display results
     if clicks:
         st.write(f"**{len(clicks)} clicks recorded:**")
@@ -34,13 +29,8 @@ st.write("### Or try with a URL:")
 url = st.text_input("Video URL")
 
 if url:
-    clicks_url = streamlit_video_coordinates(
-        url,
-        key="url_video",
-        width=500,
-        height=300
-    )
-    
+    clicks_url = streamlit_video_coordinates(url, key="url_video", width=500, height=300)
+
     if clicks_url:
         st.write(f"**{len(clicks_url)} clicks recorded:**")
         for i, click in enumerate(clicks_url):

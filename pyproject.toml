@@ -5,9 +5,18 @@ description = "Streamlit component that displays a video and returns coordinates
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = ["streamlit>=1.34"]
-authors = [{ name = "Matematija", email = "matematija@example.com" }]
+authors = [
+    { name = "Matija Medvidović", email = "matija.medvidovic@gmail.com" },
+]
 license = { file = "LICENSE" }
-keywords = ["python", "streamlit", "video", "component", "streamlit-component", "coordinates"]
+keywords = [
+    "python",
+    "streamlit",
+    "video",
+    "component",
+    "streamlit-component",
+    "coordinates",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

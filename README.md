@@ -2,6 +2,8 @@
 
 A Streamlit component that displays a video and captures coordinates when you click on paused frames.
 
+This component was needed for a webpage I was making so I decided to extract it into a reusable package. It was made with a lot of help from AI code generation. If you find any bugs, feel free to do a PR.
+
 ## Features
 
 - 📹 Support for multiple video formats (MP4, WebM, OGG, AVI, MOV)
@@ -14,7 +16,7 @@ A Streamlit component that displays a video and captures coordinates when you cl
 ## Installation
 
 ```bash
-pip install streamlit-video-coordinates
+pip install git+https://github.com/Matematija/streamlit-video-coordinates.git
 ```
 
 ## Quick Start
@@ -106,7 +108,3 @@ streamlit run streamlit_app.py
 1. Clone the repository
 2. Install dependencies: `pip install -e .`
 3. Run the demo: `streamlit run streamlit_app.py`
-
-## License
-
-Apache License 2.0
