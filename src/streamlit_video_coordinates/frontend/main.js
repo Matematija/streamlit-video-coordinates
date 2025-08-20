@@ -123,13 +123,20 @@ function clickListener(event) {
   
   // Calculate coordinates relative to video element
   const rect = video.getBoundingClientRect();
-  const x = event.clientX - rect.left;
-  const y = event.clientY - rect.top;
+  const clickX = event.clientX - rect.left;
+  const clickY = event.clientY - rect.top;
   
   // Ensure coordinates are within video bounds
-  if (x < 0 || y < 0 || x > rect.width || y > rect.height) {
+  if (clickX < 0 || clickY < 0 || clickX > rect.width || clickY > rect.height) {
     return;
   }
+  
+  // Scale coordinates to match actual video dimensions
+  // This ensures coordinates are consistent regardless of display size
+  const scaleX = video.videoWidth / rect.width;
+  const scaleY = video.videoHeight / rect.height;
+  const x = clickX * scaleX;
+  const y = clickY * scaleY;
   
   // Get current video time and estimated frame index
   const frameTime = video.currentTime;
@@ -144,7 +151,7 @@ function clickListener(event) {
   
   const unixTime = Date.now();
   
-  // Store the click event
+  // Store the click event with actual video coordinates
   const clickData = {
     x: Math.round(x),
     y: Math.round(y),
@@ -157,8 +164,8 @@ function clickListener(event) {
   
   clickEvents.push(clickData);
   
-  // Add visual marker
-  addClickMarker(x, y, frameTime, frameIndex);
+  // Add visual marker using display coordinates (not scaled)
+  addClickMarker(clickX, clickY, frameTime, frameIndex);
   
   // Send updated data to Streamlit
   sendValue();
@@ -198,35 +205,37 @@ function recreateMarkersForFullscreen() {
   
   const video = document.getElementById("video");
   const videoRect = video.getBoundingClientRect();
-  const normalOverlay = document.getElementById("click-overlay");
   
   // Clear fullscreen overlay
   fullscreenOverlay.innerHTML = "";
   
-  // Copy markers from normal overlay to fullscreen overlay with adjusted positions
-  const markers = normalOverlay.querySelectorAll('.click-marker');
-  const labels = normalOverlay.querySelectorAll('.click-label');
+  // Get current video display dimensions for scaling
+  const scaleX = videoRect.width / video.videoWidth;
+  const scaleY = videoRect.height / video.videoHeight;
   
-  markers.forEach((marker, index) => {
-    const normalX = parseFloat(marker.style.left);
-    const normalY = parseFloat(marker.style.top);
+  // Recreate all markers from stored click events with fullscreen positioning
+  clickEvents.forEach(clickData => {
+    // Convert stored video coordinates to current display coordinates
+    const displayX = clickData.x * scaleX;
+    const displayY = clickData.y * scaleY;
     
-    const newMarker = marker.cloneNode(true);
-    newMarker.style.left = (videoRect.left + normalX) + "px";
-    newMarker.style.top = (videoRect.top + normalY) + "px";
+    // Position relative to the fullscreen video element
+    const fullscreenX = videoRect.left + displayX;
+    const fullscreenY = videoRect.top + displayY;
     
-    fullscreenOverlay.appendChild(newMarker);
-  });
-  
-  labels.forEach((label, index) => {
-    const normalX = parseFloat(label.style.left);
-    const normalY = parseFloat(label.style.top);
+    const marker = document.createElement("div");
+    marker.className = "click-marker";
+    marker.style.left = fullscreenX + "px";
+    marker.style.top = fullscreenY + "px";
     
-    const newLabel = label.cloneNode(true);
-    newLabel.style.left = (videoRect.left + normalX) + "px";
-    newLabel.style.top = (videoRect.top + normalY) + "px";
+    const label = document.createElement("div");
+    label.className = "click-label";
+    label.style.left = fullscreenX + "px";
+    label.style.top = fullscreenY + "px";
+    label.textContent = `${clickData.frame_time.toFixed(2)}s (f:${clickData.frame_index})`;
     
-    fullscreenOverlay.appendChild(newLabel);
+    fullscreenOverlay.appendChild(marker);
+    fullscreenOverlay.appendChild(label);
   });
 }
 
@@ -236,19 +245,29 @@ function recreateMarkersForFullscreen() {
 function recreateMarkersForNormal() {
   // Clear and recreate markers in normal overlay from click events data
   const normalOverlay = document.getElementById("click-overlay");
+  const video = document.getElementById("video");
   normalOverlay.innerHTML = "";
+  
+  // Get current video display dimensions for scaling
+  const rect = video.getBoundingClientRect();
+  const scaleX = rect.width / video.videoWidth;
+  const scaleY = rect.height / video.videoHeight;
   
   // Recreate all markers from stored click events
   clickEvents.forEach(clickData => {
+    // Convert stored video coordinates back to display coordinates
+    const displayX = clickData.x * scaleX;
+    const displayY = clickData.y * scaleY;
+    
     const marker = document.createElement("div");
     marker.className = "click-marker";
-    marker.style.left = clickData.x + "px";
-    marker.style.top = clickData.y + "px";
+    marker.style.left = displayX + "px";
+    marker.style.top = displayY + "px";
     
     const label = document.createElement("div");
     label.className = "click-label";
-    label.style.left = clickData.x + "px";
-    label.style.top = clickData.y + "px";
+    label.style.left = displayX + "px";
+    label.style.top = displayY + "px";
     label.textContent = `${clickData.frame_time.toFixed(2)}s (f:${clickData.frame_index})`;
     
     normalOverlay.appendChild(marker);
@@ -349,6 +368,8 @@ function onRender(event) {
   // Show/hide cursor based on video state
   video.onplay = function() {
     video.style.cursor = "default";
+    // Clear all visual markers when video starts playing
+    clearMarkers();
   };
   
   video.onpause = function() {
