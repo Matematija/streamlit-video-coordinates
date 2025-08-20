@@ -36,9 +36,64 @@ function createFullscreenOverlay() {
     left: 0;
     width: 100vw;
     height: 100vh;
-    pointer-events: none;
+    pointer-events: auto;
     z-index: 9999;
   `;
+  
+  // Add click listener to fullscreen overlay
+  fullscreenOverlay.onclick = function(event) {
+    const video = document.getElementById("video");
+    
+    // Only capture clicks when video is paused
+    if (!video.paused) {
+      return;
+    }
+    
+    // Prevent the default click behavior
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Calculate coordinates relative to video element in fullscreen
+    const videoRect = video.getBoundingClientRect();
+    const clickX = event.clientX - videoRect.left;
+    const clickY = event.clientY - videoRect.top;
+    
+    // Ensure coordinates are within video bounds
+    if (clickX < 0 || clickY < 0 || clickX > videoRect.width || clickY > videoRect.height) {
+      return;
+    }
+    
+    // Scale coordinates to match actual video dimensions
+    const scaleX = video.videoWidth / videoRect.width;
+    const scaleY = video.videoHeight / videoRect.height;
+    const x = clickX * scaleX;
+    const y = clickY * scaleY;
+    
+    // Get current video time and estimated frame index
+    const frameTime = video.currentTime;
+    const frameRate = 30;
+    const frameIndex = Math.floor(frameTime * frameRate);
+    const unixTime = Date.now();
+    
+    // Store the click event with actual video coordinates
+    const clickData = {
+      x: Math.round(x),
+      y: Math.round(y),
+      frame_time: frameTime,
+      frame_index: frameIndex,
+      width: video.videoWidth,
+      height: video.videoHeight,
+      unix_time: unixTime
+    };
+    
+    clickEvents.push(clickData);
+    
+    // Add visual marker using display coordinates (not scaled)
+    addClickMarker(clickX, clickY, frameTime, frameIndex);
+    
+    // Send updated data to Streamlit
+    sendValue();
+  };
   
   return fullscreenOverlay;
 }
@@ -56,15 +111,19 @@ function removeFullscreenOverlay() {
 /**
  * Add a visual marker at the click position
  */
-/**
- * Add a visual marker at the click position
- */
 function addClickMarker(x, y, frameTime, frameIndex) {
   let overlay, actualX, actualY;
   
   if (isFullscreen) {
-    // In fullscreen, use fullscreen overlay and absolute positioning
+    // Ensure fullscreen overlay exists and is attached
     overlay = getOverlay();
+    if (!overlay || !overlay.parentNode) {
+      const fsOverlay = createFullscreenOverlay();
+      document.body.appendChild(fsOverlay);
+      overlay = fsOverlay;
+    }
+    
+    // In fullscreen, use absolute positioning relative to screen
     const video = document.getElementById("video");
     const videoRect = video.getBoundingClientRect();
     actualX = videoRect.left + x;
@@ -204,6 +263,13 @@ function recreateMarkersForFullscreen() {
   if (!isFullscreen || !fullscreenOverlay) return;
   
   const video = document.getElementById("video");
+  
+  // Only recreate markers if video is paused
+  if (!video.paused) {
+    fullscreenOverlay.innerHTML = "";
+    return;
+  }
+  
   const videoRect = video.getBoundingClientRect();
   
   // Clear fullscreen overlay
@@ -247,6 +313,11 @@ function recreateMarkersForNormal() {
   const normalOverlay = document.getElementById("click-overlay");
   const video = document.getElementById("video");
   normalOverlay.innerHTML = "";
+  
+  // Only recreate markers if video is paused
+  if (!video.paused) {
+    return;
+  }
   
   // Get current video display dimensions for scaling
   const rect = video.getBoundingClientRect();
