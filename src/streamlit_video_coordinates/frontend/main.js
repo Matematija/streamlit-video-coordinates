@@ -56,7 +56,13 @@ function clickListener(event) {
   
   // Get current video time and estimated frame index
   const frameTime = video.currentTime;
-  const frameRate = 30; // Default frame rate assumption
+  // Try to get actual frame rate from video, fallback to 30fps
+  let frameRate = 30;
+  if (video.videoHeight && video.videoWidth) {
+    // For most web videos, 30fps is a reasonable default
+    // In a production environment, you might want to detect this more accurately
+    frameRate = 30;
+  }
   const frameIndex = Math.floor(frameTime * frameRate);
   
   const unixTime = Date.now();
@@ -110,6 +116,15 @@ function onRender(event) {
     // Clear previous click events when video changes
     clickEvents = [];
     clearMarkers();
+    
+    // Handle video load errors
+    video.onerror = function() {
+      console.error("Failed to load video:", src);
+    };
+    
+    video.oncanplay = function() {
+      console.log("Video ready to play");
+    };
   }
   
   // Set video dimensions
