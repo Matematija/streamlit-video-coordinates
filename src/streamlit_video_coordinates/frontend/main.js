@@ -127,6 +127,10 @@ function onRender(event) {
   const video = document.getElementById("video");
   const container = document.getElementById("video-container");
   
+  // Ensure video element has controls
+  video.setAttribute('controls', 'true');
+  video.setAttribute('controlslist', 'nofullscreen');
+  
   // Update video source if changed
   if (video.src !== src) {
     video.src = src;
@@ -135,12 +139,27 @@ function onRender(event) {
     clearMarkers();
     
     // Handle video load errors
-    video.onerror = function() {
-      console.error("Failed to load video:", src);
+    video.onerror = function(e) {
+      console.error("Failed to load video:", src, e);
+      // Still show the video element with controls for user feedback
+      // Add a visual indicator that the video failed to load
+      video.style.backgroundColor = "#000";
+      video.style.position = "relative";
+    };
+    
+    video.onloadstart = function() {
+      console.log("Started loading video:", src);
     };
     
     video.oncanplay = function() {
       console.log("Video ready to play");
+      // Clear any error styling
+      video.style.backgroundColor = "";
+    };
+    
+    video.onloadedmetadata = function() {
+      console.log("Video metadata loaded");
+      updateFrameHeight();
     };
   }
   

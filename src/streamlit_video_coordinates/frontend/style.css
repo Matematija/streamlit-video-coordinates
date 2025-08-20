@@ -7,8 +7,10 @@
 #video {
   width: 100%;
   height: auto;
+  min-height: 200px;
   display: block;
   cursor: crosshair;
+  background-color: #000;
 }
 
 #click-overlay {
