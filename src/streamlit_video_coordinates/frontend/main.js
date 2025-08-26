@@ -66,10 +66,19 @@ function clickListener(event) {
   
   // Scale coordinates to match actual video dimensions
   // This ensures coordinates are consistent regardless of display size
-  const scaleX = video.videoWidth / rect.width;
-  const scaleY = video.videoHeight / rect.height;
-  const x = clickX * scaleX;
-  const y = clickY * scaleY;
+  let x = clickX;
+  let y = clickY;
+  
+  // Only scale if video metadata is available
+  if (video.videoWidth && video.videoHeight && rect.width && rect.height) {
+    const scaleX = video.videoWidth / rect.width;
+    const scaleY = video.videoHeight / rect.height;
+    x = clickX * scaleX;
+    y = clickY * scaleY;
+    console.log(`Coordinate scaling: display(${clickX.toFixed(2)}, ${clickY.toFixed(2)}) -> video(${x.toFixed(2)}, ${y.toFixed(2)}) | scales(${scaleX.toFixed(3)}, ${scaleY.toFixed(3)}) | video size: ${video.videoWidth}x${video.videoHeight} | display size: ${rect.width.toFixed(1)}x${rect.height.toFixed(1)}`);
+  } else {
+    console.warn("Video dimensions not available for coordinate scaling - using display coordinates");
+  }
   
   // Get current video time and estimated frame index
   const frameTime = video.currentTime;
@@ -90,8 +99,8 @@ function clickListener(event) {
     y: Math.round(y),
     frame_time: frameTime,
     frame_index: frameIndex,
-    width: video.videoWidth,
-    height: video.videoHeight,
+    width: video.videoWidth || rect.width,
+    height: video.videoHeight || rect.height,
     unix_time: unixTime
   };
   
@@ -131,8 +140,12 @@ function onRender(event) {
   video.setAttribute('controls', 'true');
   video.setAttribute('controlslist', 'nofullscreen');
   
+  // Preserve current video time before any changes
+  const currentTime = video.currentTime || 0;
+  
   // Update video source if changed
-  if (video.src !== src) {
+  const videoSourceChanged = video.src !== src;
+  if (videoSourceChanged) {
     video.src = src;
     // Clear previous click events when video changes
     clickEvents = [];
@@ -180,11 +193,6 @@ function onRender(event) {
     video.style.maxHeight = "none";
   }
   
-  // Set start time if specified
-  if (start_time && start_time > 0) {
-    video.currentTime = start_time;
-  }
-  
   // Update frame height for Streamlit
   function updateFrameHeight() {
     const rect = video.getBoundingClientRect();
@@ -192,26 +200,37 @@ function onRender(event) {
     updateOverlaySize();
   }
   
-  video.onloadedmetadata = updateFrameHeight;
-  video.onresize = updateFrameHeight;
-  window.addEventListener("resize", updateFrameHeight);
+  // Only set up event handlers when video source changes or on initial load
+  if (videoSourceChanged || !video.onclick) {
+    video.onloadedmetadata = updateFrameHeight;
+    video.onresize = updateFrameHeight;
+    window.addEventListener("resize", updateFrameHeight);
+    
+    // Add click listener
+    video.onclick = clickListener;
+    
+    // Update overlay on video time changes
+    video.ontimeupdate = updateOverlaySize;
+    
+    // Show/hide cursor based on video state
+    video.onplay = function() {
+      video.style.cursor = "default";
+      // Clear all visual markers when video starts playing
+      clearMarkers();
+    };
+    
+    video.onpause = function() {
+      video.style.cursor = "crosshair";
+    };
+  }
   
-  // Add click listener
-  video.onclick = clickListener;
-  
-  // Update overlay on video time changes
-  video.ontimeupdate = updateOverlaySize;
-  
-  // Show/hide cursor based on video state
-  video.onplay = function() {
-    video.style.cursor = "default";
-    // Clear all visual markers when video starts playing
-    clearMarkers();
-  };
-  
-  video.onpause = function() {
-    video.style.cursor = "crosshair";
-  };
+  // Set start time if specified (only for new videos or initial load)
+  if (videoSourceChanged && start_time && start_time > 0) {
+    video.currentTime = start_time;
+  } else if (!videoSourceChanged && currentTime > 0) {
+    // Preserve current time during re-renders
+    video.currentTime = currentTime;
+  }
   
   // Initial setup
   updateFrameHeight();
