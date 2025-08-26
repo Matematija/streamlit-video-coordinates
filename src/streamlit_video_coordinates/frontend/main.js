@@ -68,16 +68,36 @@ function clickListener(event) {
   // This ensures coordinates are consistent regardless of display size
   let x = clickX;
   let y = clickY;
+  let videoWidth = video.videoWidth;
+  let videoHeight = video.videoHeight;
   
-  // Only scale if video metadata is available
-  if (video.videoWidth && video.videoHeight && rect.width && rect.height) {
-    const scaleX = video.videoWidth / rect.width;
-    const scaleY = video.videoHeight / rect.height;
+  // Determine the reference video dimensions for scaling
+  if (video.videoWidth && video.videoHeight) {
+    // Video metadata is available - use actual video dimensions
+    videoWidth = video.videoWidth;
+    videoHeight = video.videoHeight;
+  } else if (customWidth && customHeight) {
+    // Video metadata not available but custom dimensions provided - use custom dimensions
+    videoWidth = customWidth;
+    videoHeight = customHeight;
+    console.log(`Using custom dimensions for coordinate scaling: ${customWidth}x${customHeight}`);
+  } else {
+    // No video metadata and no custom dimensions - fallback to display dimensions
+    videoWidth = rect.width;
+    videoHeight = rect.height;
+    console.warn("No video or custom dimensions available - using display dimensions for coordinates");
+  }
+  
+  // Perform coordinate scaling if we have valid dimensions
+  if (videoWidth && videoHeight && rect.width && rect.height && 
+      (videoWidth !== rect.width || videoHeight !== rect.height)) {
+    const scaleX = videoWidth / rect.width;
+    const scaleY = videoHeight / rect.height;
     x = clickX * scaleX;
     y = clickY * scaleY;
-    console.log(`Coordinate scaling: display(${clickX.toFixed(2)}, ${clickY.toFixed(2)}) -> video(${x.toFixed(2)}, ${y.toFixed(2)}) | scales(${scaleX.toFixed(3)}, ${scaleY.toFixed(3)}) | video size: ${video.videoWidth}x${video.videoHeight} | display size: ${rect.width.toFixed(1)}x${rect.height.toFixed(1)}`);
+    console.log(`Coordinate scaling: display(${clickX.toFixed(2)}, ${clickY.toFixed(2)}) -> video(${x.toFixed(2)}, ${y.toFixed(2)}) | scales(${scaleX.toFixed(3)}, ${scaleY.toFixed(3)}) | reference size: ${videoWidth}x${videoHeight} | display size: ${rect.width.toFixed(1)}x${rect.height.toFixed(1)}`);
   } else {
-    console.warn("Video dimensions not available for coordinate scaling - using display coordinates");
+    console.log(`No coordinate scaling needed: reference(${videoWidth}x${videoHeight}) = display(${rect.width.toFixed(1)}x${rect.height.toFixed(1)})`);
   }
   
   // Get current video time and estimated frame index
@@ -99,8 +119,8 @@ function clickListener(event) {
     y: Math.round(y),
     frame_time: frameTime,
     frame_index: frameIndex,
-    width: video.videoWidth || rect.width,
-    height: video.videoHeight || rect.height,
+    width: videoWidth || rect.width,
+    height: videoHeight || rect.height,
     unix_time: unixTime
   };
   
@@ -125,6 +145,10 @@ function updateOverlaySize() {
   overlay.style.height = rect.height + "px";
 }
 
+// Store the custom dimensions for coordinate scaling
+let customWidth = null;
+let customHeight = null;
+
 /**
  * The component's render function. This will be called immediately after
  * the component is initially loaded, and then again every time the
@@ -132,6 +156,10 @@ function updateOverlaySize() {
  */
 function onRender(event) {
   let {src, height, width, start_time} = event.detail.args;
+  
+  // Store custom dimensions for coordinate scaling
+  customWidth = width;
+  customHeight = height;
   
   const video = document.getElementById("video");
   const container = document.getElementById("video-container");
